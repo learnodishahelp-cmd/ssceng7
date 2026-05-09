@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSC Error Spotting Quiz</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --primary: #5b5fe3; --primary-dark: #4a4ec9; --secondary: #8b5cf6;
+            --success: #10b981; --success-light: #d1fae5; --danger: #ef4444;
+            --danger-light: #fee2e2; --warning: #f59e0b; --warning-light: #fef3c7;
+            --info: #3b82f6; --info-light: #eff6ff; --card: #ffffff;
+            --text: #1e293b; --text-light: #64748b; --text-muted: #94a3b8;
+            --border: #e2e8f0; --shadow-lg: 0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+            --radius-sm: 10px; --radius: 16px; --radius-lg: 20px; --radius-xl: 24px;
+            --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+            --font: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html { font-size:16px; -webkit-tap-highlight-color:transparent; }
+        body {
+            font-family:var(--font);
+            background:linear-gradient(135deg,#e8ecf4 0%,#dce3f0 25%,#eef1f8 50%,#e4e9f5 75%,#f0f4f8 100%);
+            background-attachment:fixed; min-height:100vh; min-height:100dvh;
+            display:flex; align-items:center; justify-content:center;
+            padding:16px; color:var(--text); -webkit-font-smoothing:antialiased;
+            position:relative; overflow-x:hidden;
+        }
+        body::before,body::after { content:''; position:fixed; border-radius:50%; filter:blur(80px); opacity:0.35; pointer-events:none; z-index:0; animation:floatOrb 20s ease-in-out infinite; }
+        body::before { width:350px; height:350px; background:#c4b5fd; top:-80px; left:-100px; }
+        body::after  { width:300px; height:300px; background:#a5d8ff; bottom:-90px; right:-80px; animation-delay:-10s; }
+        @keyframes floatOrb { 0%,100%{transform:translate(0,0) scale(1);} 25%{transform:translate(30px,-40px) scale(1.1);} 50%{transform:translate(-20px,25px) scale(0.9);} 75%{transform:translate(-35px,-20px) scale(1.05);} }
+        .app-container { position:relative; z-index:1; width:100%; max-width:620px; background:var(--card); border-radius:var(--radius-xl); box-shadow:var(--shadow-lg); overflow:hidden; min-height:520px; display:flex; flex-direction:column; }
+        .screen { display:none; flex-direction:column; flex:1; padding:28px 24px 24px; animation:fadeSlideIn 0.4s ease-out; }
+        .screen.active { display:flex; }
+        @keyframes fadeSlideIn { from{opacity:0;transform:translateY(18px);} to{opacity:1;transform:translateY(0);} }
+        .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:14px 32px; border-radius:50px; font-size:1rem; font-weight:600; cursor:pointer; border:none; transition:all var(--transition); font-family:var(--font); letter-spacing:0.01em; white-space:nowrap; user-select:none; -webkit-user-select:none; }
+        .btn:active { transform:scale(0.96); }
+        .btn:disabled { opacity:0.5; cursor:not-allowed; pointer-events:none; }
+        .btn-primary { background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; box-shadow:0 4px 15px rgba(91,95,227,0.35); font-size:1.05rem; padding:15px 40px; }
+        .btn-primary:hover { box-shadow:0 6px 22px rgba(91,95,227,0.45); transform:translateY(-2px); }
+        .btn-outline { background:#fff; color:var(--primary); border:2px solid var(--primary); }
+        .btn-outline:hover { background:#f5f3ff; }
+        .btn-sm { padding:10px 20px; font-size:0.88rem; }
+        .btn-info { background:var(--info); color:#fff; box-shadow:0 4px 14px rgba(59,130,246,0.3); }
+        .btn-info:hover { box-shadow:0 6px 20px rgba(59,130,246,0.4); transform:translateY(-2px); }
+        .start-screen { align-items:center; justify-content:center; text-align:center; gap:20px; padding:40px 28px; }
+        .guest-content,.returning-content { display:flex; flex-direction:column; align-items:center; gap:20px; width:100%; }
+        .guest-content { display:flex; } .returning-content { display:none; }
+        .logo-icon { font-size:64px; animation:bounce 2s ease-in-out infinite; }
+        @keyframes bounce { 0%,100%{transform:translateY(0);} 40%{transform:translateY(-18px);} 60%{transform:translateY(-6px);} }
+        .start-screen h1 { font-size:1.9rem; font-weight:700; background:linear-gradient(135deg,var(--primary),var(--secondary)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1.2; }
+        .start-screen .subtitle { font-size:0.95rem; color:var(--text-light); max-width:340px; line-height:1.5; }
+        .welcome-msg { font-size:1.3rem; font-weight:700; background:linear-gradient(135deg,var(--primary),var(--secondary)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .info-cards { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; width:100%; max-width:380px; }
+        .info-card { flex:1; min-width:90px; background:#f8fafc; border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 12px; text-align:center; }
+        .info-card .icon { font-size:26px; margin-bottom:4px; }
+        .info-card .label { font-size:0.78rem; color:var(--text-light); font-weight:500; }
+        .info-card .value { font-size:1.1rem; font-weight:700; color:var(--text); }
+        .history-box { width:100%; max-width:400px; background:#f8fafc; border:1px solid var(--border); border-radius:var(--radius); padding:16px; text-align:left; }
+        .history-box h4 { margin:0 0 10px; font-size:0.95rem; color:var(--text); }
+        .history-list { display:flex; flex-direction:column; gap:8px; max-height:180px; overflow-y:auto; }
+        .history-item { display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; padding:8px 12px; background:#fff; border-radius:8px; border:1px solid var(--border); }
+        .history-score { font-weight:700; color:var(--primary); }
+        .history-date { color:var(--text-muted); font-size:0.75rem; }
+        .change-user-btn { background:none; border:none; color:var(--danger); font-size:0.8rem; cursor:pointer; text-decoration:underline; margin-top:8px; }
+        .name-screen { align-items:center; justify-content:center; text-align:center; gap:24px; padding:40px 28px; }
+        .name-screen .name-icon { font-size:56px; }
+        .name-screen h2 { font-size:1.6rem; font-weight:700; background:linear-gradient(135deg,var(--primary),var(--secondary)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+        .name-screen p { font-size:0.9rem; color:var(--text-light); max-width:300px; line-height:1.5; }
+        .name-field-wrap { width:100%; max-width:340px; display:flex; flex-direction:column; gap:12px; }
+        .name-field,.mobile-field { width:100%; padding:14px 20px; border-radius:50px; border:2px solid var(--border); font-size:1rem; font-family:var(--font); outline:none; transition:all var(--transition); background:#fafbfc; text-align:center; color:var(--text); }
+        .name-field:focus,.mobile-field:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(91,95,227,0.12); background:#fff; }
+        .name-field::placeholder,.mobile-field::placeholder { color:var(--text-muted); }
+        .name-error,.mobile-error { font-size:0.82rem; color:var(--danger); font-weight:500; min-height:18px; text-align:center; }
+        .quiz-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:12px; }
+        .question-counter { font-weight:700; font-size:0.9rem; color:var(--primary); background:#eef0ff; padding:6px 14px; border-radius:50px; white-space:nowrap; }
+        .player-badge { font-weight:600; font-size:0.82rem; color:var(--text-light); background:#f8fafc; border:1px solid var(--border); padding:5px 12px; border-radius:50px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; }
+        .timer-display { font-weight:700; font-size:0.9rem; color:var(--text); background:#f8fafc; padding:6px 14px; border-radius:50px; display:flex; align-items:center; gap:6px; white-space:nowrap; transition:color 0.3s; }
+        .timer-display.urgent  { color:var(--danger); animation:pulse 0.6s ease-in-out infinite; }
+        .timer-display.warning { color:var(--warning); }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+        .timer-dot { width:8px; height:8px; border-radius:50%; background:currentColor; transition:background 0.3s; }
+        .timer-bar-container { width:100%; height:6px; background:#e5e7eb; border-radius:10px; margin-bottom:20px; overflow:hidden; }
+        .timer-bar { height:100%; border-radius:10px; background:var(--success); transition:width 0.1s linear,background 0.4s; width:100%; }
+        .timer-bar.warning { background:var(--warning); }
+        .timer-bar.danger  { background:var(--danger); }
+        .sentence-display { background:#f8fafc; border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; margin-bottom:16px; font-size:1rem; line-height:1.7; color:var(--text); border-left:4px solid var(--primary); font-weight:500; }
+        .progress-dots { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:18px; justify-content:center; }
+        .progress-dot { width:8px; height:8px; border-radius:50%; background:#e5e7eb; transition:all var(--transition); flex-shrink:0; }
+        .progress-dot.done      { background:var(--success); transform:scale(1.2); }
+        .progress-dot.wrong-dot { background:var(--danger); transform:scale(1.2); }
+        .progress-dot.skipped   { background:var(--text-muted); transform:scale(1.2); }
+        .progress-dot.current   { background:var(--primary); box-shadow:0 0 0 4px rgba(91,95,227,0.2); transform:scale(1.4); animation:dotPulse 1.5s ease-in-out infinite; }
+        @keyframes dotPulse { 0%,100%{box-shadow:0 0 0 4px rgba(91,95,227,0.2);} 50%{box-shadow:0 0 0 10px rgba(91,95,227,0);} }
+        .options-list { display:flex; flex-direction:column; gap:10px; list-style:none; }
+        .option-btn { display:flex; align-items:center; gap:12px; width:100%; padding:14px 16px; border:2px solid var(--border); border-radius:var(--radius); background:#fff; cursor:pointer; font-size:0.95rem; font-family:var(--font); text-align:left; transition:all var(--transition); font-weight:500; color:var(--text); user-select:none; -webkit-user-select:none; }
+        .option-btn:hover { border-color:#c4c8f0; background:#fafaff; transform:translateX(2px); }
+        .option-btn:active { transform:scale(0.985); }
+        .option-letter { display:flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; background:#f1f5f9; font-weight:700; font-size:0.9rem; flex-shrink:0; transition:all var(--transition); color:var(--text-light); }
+        .option-btn:hover .option-letter { background:#e0e4f5; color:var(--primary); }
+        .option-btn.correct { border-color:var(--success)!important; background:var(--success-light)!important; animation:correctPop 0.5s ease-out; }
+        .option-btn.correct .option-letter { background:var(--success); color:#fff; }
+        .option-btn.wrong   { border-color:var(--danger)!important; background:var(--danger-light)!important; animation:shake 0.5s ease-out; }
+        .option-btn.wrong .option-letter { background:var(--danger); color:#fff; }
+        .option-btn.reveal-correct { border-color:var(--success)!important; background:#f0fdf6!important; }
+        .option-btn.reveal-correct .option-letter { background:var(--success); color:#fff; }
+        .option-btn.disabled { pointer-events:none; opacity:0.7; }
+        .option-btn.disabled:hover { transform:none; border-color:var(--border); background:#fff; }
+        @keyframes correctPop { 0%{transform:scale(1);} 30%{transform:scale(1.03);} 100%{transform:scale(1);} }
+        @keyframes shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-6px);} 40%{transform:translateX(6px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(4px);} }
+        .result-screen { align-items:center; text-align:center; gap:14px; padding:28px 24px 20px; }
+        .result-emoji { font-size:56px; animation:bounce 1.5s ease-in-out; }
+        .result-player-name { font-size:1.1rem; font-weight:700; color:var(--primary); background:#eef0ff; padding:6px 20px; border-radius:50px; }
+        .score-circle { position:relative; width:130px; height:130px; flex-shrink:0; }
+        .score-circle svg { width:100%; height:100%; transform:rotate(-90deg); }
+        .score-circle .bg-ring      { fill:none; stroke:#e5e7eb; stroke-width:10; }
+        .score-circle .progress-ring { fill:none; stroke:var(--success); stroke-width:10; stroke-linecap:round; transition:stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1); }
+        .score-circle .score-text { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:800; font-size:2.2rem; color:var(--text); line-height:1; }
+        .score-circle .score-text small { font-size:0.72rem; font-weight:500; color:var(--text-light); display:block; }
+        .result-message { font-size:1rem; font-weight:600; color:var(--text); max-width:320px; }
+        .result-detail  { font-size:0.83rem; color:var(--text-light); }
+        .auto-save-status { display:flex; align-items:center; gap:8px; font-size:0.82rem; font-weight:500; padding:8px 16px; border-radius:50px; background:#f8fafc; border:1px solid var(--border); }
+        .auto-save-status.saving { color:var(--warning); border-color:#fcd34d; background:var(--warning-light); }
+        .auto-save-status.saved  { color:var(--success); border-color:#6ee7b7; background:var(--success-light); }
+        .auto-save-status.error  { color:var(--danger);  border-color:#fca5a5; background:var(--danger-light); }
+        .result-buttons { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; width:100%; max-width:380px; }
+        .review-screen { gap:0; padding:0; }
+        .review-header { position:sticky; top:0; z-index:10; background:var(--card); padding:18px 20px 14px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; }
+        .review-header h2 { font-size:1.2rem; font-weight:700; color:var(--text); flex:1; }
+        .review-score-badge { font-size:0.82rem; font-weight:700; padding:5px 14px; border-radius:50px; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; white-space:nowrap; }
+        .review-list { flex:1; overflow-y:auto; padding:16px 20px 20px; display:flex; flex-direction:column; gap:16px; }
+        .review-list::-webkit-scrollbar { width:5px; }
+        .review-list::-webkit-scrollbar-thumb { background:#d1d5db; border-radius:10px; }
+        .review-card { border-radius:var(--radius); border:2px solid var(--border); overflow:hidden; transition:all var(--transition); }
+        .review-card.correct-card { border-color:var(--success); }
+        .review-card.wrong-card   { border-color:var(--danger); }
+        .review-card.skipped-card { border-color:var(--text-muted); }
+        .review-card-header { display:flex; align-items:flex-start; gap:10px; padding:14px 16px 12px; background:#fafbfc; }
+        .review-card.correct-card .review-card-header { background:#f0fdf4; }
+        .review-card.wrong-card   .review-card-header { background:#fff5f5; }
+        .review-card.skipped-card .review-card-header { background:#f8fafc; }
+        .review-q-num { flex-shrink:0; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.78rem; font-weight:700; background:var(--border); color:var(--text-light); }
+        .review-card.correct-card .review-q-num { background:var(--success); color:#fff; }
+        .review-card.wrong-card   .review-q-num { background:var(--danger);  color:#fff; }
+        .review-card.skipped-card .review-q-num { background:var(--text-muted); color:#fff; }
+        .review-sentence { font-size:0.92rem; font-weight:500; color:var(--text); line-height:1.6; margin-bottom:8px; }
+        .review-card-body { padding:12px 16px 14px; display:flex; flex-direction:column; gap:8px; }
+        .review-answer-row { display:flex; align-items:flex-start; gap:8px; font-size:0.85rem; }
+        .review-answer-label { font-weight:700; white-space:nowrap; font-size:0.78rem; padding:3px 8px; border-radius:6px; flex-shrink:0; }
+        .label-your    { background:var(--danger-light);  color:var(--danger); }
+        .label-correct { background:var(--success-light); color:var(--success); }
+        .label-skipped { background:#f1f5f9; color:var(--text-muted); }
+        .review-answer-text { color:var(--text); line-height:1.4; padding-top:2px; }
+        .review-explanation { margin-top:4px; padding:10px 14px; background:var(--info-light); border-radius:var(--radius-sm); border-left:3px solid var(--info); font-size:0.83rem; color:#1e40af; line-height:1.5; }
+        .review-explanation strong { display:block; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:3px; color:var(--info); }
+        .review-footer { padding:14px 20px; border-top:1px solid var(--border); display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+        @media (max-width:480px) {
+            .app-container { border-radius:var(--radius-lg); min-height:auto; }
+            .screen { padding:20px 16px 18px; }
+            .start-screen,.name-screen { padding:30px 16px; gap:14px; }
+            .start-screen h1,.name-screen h2 { font-size:1.4rem; }
+            .sentence-display { font-size:0.9rem; padding:12px; }
+            .option-btn { padding:12px 14px; font-size:0.9rem; }
+            .option-letter { width:30px; height:30px; font-size:0.8rem; }
+            .btn { padding:12px 24px; font-size:0.9rem; }
+            .btn-primary { padding:14px 30px; font-size:0.95rem; }
+            .review-list { padding:12px 14px; }
+            .review-header { padding:14px 14px 10px; }
+            .review-footer { padding:12px 14px; }
+            .result-buttons .btn { font-size:0.82rem; padding:10px 16px; }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container" id="appContainer">
+
+    <div class="screen active" id="startScreen">
+        <div class="guest-content" id="guestContent">
+            <div class="logo-icon">🔍</div>
+            <h1>SSC Error Spotting Quiz</h1>
+            <p class="subtitle">Sharpen your grammar by finding the error in 50 frequently asked sentences.</p>
+            <div class="info-cards">
+                <div class="info-card"><div class="icon">📋</div><div class="value">50</div><div class="label">Questions</div></div>
+                <div class="info-card"><div class="icon">⏱️</div><div class="value">1 min</div><div class="label">Per Question</div></div>
+                <div class="info-card"><div class="icon">🏆</div><div class="value">+1</div><div class="label">Per Correct</div></div>
+            </div>
+            <button class="btn btn-primary" id="btnStart">🚀 Start Quiz</button>
+        </div>
+        <div class="returning-content" id="returningContent">
+            <div class="logo-icon">🔍</div>
+            <div class="welcome-msg" id="welcomeMsg">Welcome back!</div>
+            <div class="history-box">
+                <h4>📊 Your Previous Scores</h4>
+                <div class="history-list" id="historyList"><p style="text-align:center;color:var(--text-muted);">Loading...</p></div>
+            </div>
+            <button class="btn btn-primary" id="btnStartReturning">🔄 Start New Quiz</button>
+            <button class="change-user-btn" id="btnChangeUser">Not you? Register as new user</button>
+        </div>
+    </div>
+
+    <div class="screen name-screen" id="nameScreen">
+        <div class="name-icon">👤</div>
+        <h2>What's Your Name?</h2>
+        <p>Enter your name and mobile number before starting.</p>
+        <div class="name-field-wrap">
+            <input type="text" class="name-field" id="playerNameInput" placeholder="Enter your name…" maxlength="30">
+            <span class="name-error" id="nameError"></span>
+            <input type="tel" class="mobile-field" id="mobileInput" placeholder="Enter your mobile number" maxlength="10" inputmode="numeric">
+            <span class="mobile-error" id="mobileError"></span>
+            <button class="btn btn-primary" id="btnBeginQuiz">▶️ Begin Quiz</button>
+            <button class="btn btn-outline btn-sm" id="btnBackToStart">← Back</button>
+        </div>
+    </div>
+
+    <div class="screen" id="quizScreen">
+        <div class="quiz-header">
+            <span class="question-counter" id="questionCounter">Q 1/50</span>
+            <span class="player-badge" id="playerBadge">Player</span>
+            <span class="timer-display" id="timerDisplay"><span class="timer-dot"></span><span id="timerText">60s</span></span>
+        </div>
+        <div class="timer-bar-container"><div class="timer-bar" id="timerBar"></div></div>
+        <div class="sentence-display" id="sentenceDisplay"></div>
+        <div class="progress-dots" id="progressDots"></div>
+        <ul class="options-list" id="optionsList"></ul>
+    </div>
+
+    <div class="screen result-screen" id="resultScreen">
+        <div class="result-emoji" id="resultEmoji">🎉</div>
+        <div class="result-player-name" id="resultPlayerName">Player</div>
+        <div class="score-circle">
+            <svg viewBox="0 0 140 140">
+                <circle class="bg-ring" cx="70" cy="70" r="62"/>
+                <circle class="progress-ring" id="resultRing" cx="70" cy="70" r="62" stroke-dasharray="389.56" stroke-dashoffset="389.56"/>
+            </svg>
+            <div class="score-text"><span id="resultScore">0</span><small>/ 50</small></div>
+        </div>
+        <p class="result-message" id="resultMessage"></p>
+        <p class="result-detail"  id="resultDetail"></p>
+        <div class="auto-save-status saving" id="autoSaveStatus"><span id="autoSaveIcon">⏳</span><span id="autoSaveText">Saving your score…</span></div>
+        <div class="result-buttons">
+            <button class="btn btn-info btn-sm" id="btnReview">📖 Review Answers</button>
+            <button class="btn btn-primary btn-sm" id="btnRetry">🔄 Retry Quiz</button>
+        </div>
+    </div>
+
+    <div class="screen review-screen" id="reviewScreen">
+        <div class="review-header">
+            <h2>📖 Answer Review</h2>
+            <span class="review-score-badge" id="reviewScoreBadge">0/50</span>
+        </div>
+        <div class="review-list" id="reviewList"></div>
+        <div class="review-footer">
+            <button class="btn btn-primary btn-sm" id="btnRetryFromReview">🔄 Retry Quiz</button>
+            <button class="btn btn-outline btn-sm" id="btnBackToResult">← Back to Result</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const firebaseConfig = {
+        apiKey: "AIzaSyBFsiY4iOZ9-QKnZ_inrudYTAJ0F_Usht0",
+        authDomain: "manoj-demo-4d34f.firebaseapp.com",
+        databaseURL: "https://manoj-demo-4d34f-default-rtdb.firebaseio.com",
+        projectId: "manoj-demo-4d34f"
+    };
+    let db = null;
+    try {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        console.log('✅ Firebase initialized.');
+    } catch(e) { console.warn('⚠️ Firebase init failed'); }
+
+    const TOTAL_QUESTIONS = 50, TIME_PER_QUESTION = 60, CIRCUMFERENCE = 2 * Math.PI * 62;
+    let playerName = '', playerMobile = '', isReturningUser = false;
+
+    const state = {
+        currentIndex:0, score:0, answers:[], timeLeft:TIME_PER_QUESTION,
+        timerInterval:null, questionStartTime:0, quizFinished:false,
+        totalTimeTaken:0, isAnswerLocked:false
+    };
+
+    // 50 ERROR SPOTTING QUESTIONS (same as before)
+    const questions = [
+        { parts: ["The students", "was going", "to the school", "on foot"], correct:1, explanation:"Subject‑verb agreement: 'was' → 'were' (plural subject)." },
+        { parts: ["She don't", "like to", "play in", "the rain"], correct:0, explanation:"Third person singular: 'doesn't'." },
+        { parts: ["Each of the boys", "have submitted", "their assignments", "on time"], correct:1, explanation:"'Each' is singular → 'has submitted'." },
+        { parts: ["He is", "taller than", "me", "by two inches"], correct:2, explanation:"Subjective case after 'than': 'taller than I (am)'." },
+        { parts: ["Neither the teacher", "nor the students", "was present", "in the class"], correct:2, explanation:"Verb agrees with nearest subject ('students') → 'were'." },
+        { parts: ["I have been", "waiting for you", "since two hours", "in the lobby"], correct:2, explanation:"'for' with duration; 'since' with point in time." },
+        { parts: ["The news", "are very", "disturbing", "these days"], correct:1, explanation:"'News' is singular → 'is'." },
+        { parts: ["More than one man", "were present", "at the meeting", "yesterday"], correct:1, explanation:"'More than one' takes singular verb: 'was'." },
+        { parts: ["She is", "one of those", "teachers who", "has inspired me"], correct:3, explanation:"Relative pronoun 'who' refers to plural 'teachers' → 'have inspired'." },
+        { parts: ["I prefer", "coffee", "than tea", "in the morning"], correct:2, explanation:"'prefer...to' is the correct pattern." },
+        { parts: ["He is", "addicted with", "social media", "these days"], correct:1, explanation:"Fixed preposition: 'addicted to'." },
+        { parts: ["The committee", "have reached", "a unanimous", "decision"], correct:1, explanation:"Collective noun acting as unit → singular verb 'has'." },
+        { parts: ["If I", "was you", "I would", "accept the offer"], correct:1, explanation:"Unreal conditional: 'If I were you'." },
+        { parts: ["He didn't", "knew the answer", "to the question", "being asked"], correct:1, explanation:"After 'did', base form: 'didn't know'." },
+        { parts: ["The children", "enjoyed to play", "in the garden", "all evening"], correct:1, explanation:"'enjoy' + gerund: 'enjoyed playing'." },
+        { parts: ["She is", "more intelligent", "than any student", "in the class"], correct:3, explanation:"Add 'other': 'than any other student'." },
+        { parts: ["The police", "is investigating", "the case", "very seriously"], correct:1, explanation:"'Police' is plural: 'are investigating'." },
+        { parts: ["He has", "been living", "in Delhi", "since five years"], correct:3, explanation:"Duration → 'for five years'." },
+        { parts: ["No sooner", "had I reached", "the station", "when the train left"], correct:3, explanation:"Correct pair: 'No sooner...than'." },
+        { parts: ["He asked", "that why", "I was", "late"], correct:1, explanation:"Omit 'that': 'He asked why I was late'." },
+        { parts: ["The famous singer", "together with his musicians", "have arrived", "at the venue"], correct:2, explanation:"Phrase 'together with' doesn't change subject; verb agrees with 'singer' → 'has arrived'." },
+        { parts: ["Neither of", "the two girls", "are beautiful", "and intelligent"], correct:2, explanation:"'Neither' is singular: 'is beautiful'." },
+        { parts: ["He is", "the tallest of", "the two brothers", "in the family"], correct:1, explanation:"Comparative degree for two: 'the taller of'." },
+        { parts: ["The teacher", "gave us", "many informations", "about the exam"], correct:2, explanation:"'Information' is uncountable; use 'much information'." },
+        { parts: ["She is", "enough smart", "to solve", "the puzzle"], correct:1, explanation:"Adverb placement: 'smart enough'." },
+        { parts: ["He talks", "as if", "he is", "a king"], correct:2, explanation:"Use 'were' in unreal present: 'as if he were a king'." },
+        { parts: ["The reason", "for his failure", "is because he", "did not study"], correct:2, explanation:"'The reason...is that', not 'because'." },
+        { parts: ["She is", "one of the best", "actress in", "the industry"], correct:2, explanation:"Plural after 'one of the': 'actresses'." },
+        { parts: ["He is", "the same man", "who I saw", "yesterday"], correct:2, explanation:"Objective case needed: 'whom I saw'." },
+        { parts: ["Each boy", "and each girl", "were given", "a prize"], correct:2, explanation:"'Each...each' takes singular verb: 'was given'." },
+        { parts: ["The project", "will be completed", "within a hour", "or two"], correct:2, explanation:"Article: 'an hour' (vowel sound)." },
+        { parts: ["He is", "not only a poet", "but also writes", "beautiful prose"], correct:2, explanation:"Parallel structure: 'but also a prose writer'." },
+        { parts: ["I wish", "I was", "a bird", "to fly high"], correct:1, explanation:"Unreal wish: 'I wish I were'." },
+        { parts: ["The manager", "along with his team", "are working", "on the project"], correct:2, explanation:"Subject is 'manager', so 'is working'." },
+        { parts: ["She is", "one of the girls", "who has", "won the scholarship"], correct:2, explanation:"'who' refers to 'girls' → 'who have won'." },
+        { parts: ["He is", "taller", "than any boy", "in the class"], correct:2, explanation:"Add 'other': 'than any other boy'." },
+        { parts: ["The weather", "of Delhi", "is hotter", "than Mumbai"], correct:3, explanation:"Ambiguous comparison: 'than that of Mumbai' or 'than Mumbai's'." },
+        { parts: ["He is", "the cleverest man", "of all the other", "students in the class"], correct:2, explanation:"Remove 'other' after superlative: 'of all the students'." },
+        { parts: ["She is", "more beautiful", "than anyone", "in the school"], correct:2, explanation:"'than anyone else'." },
+        { parts: ["He is", "the same man", "who I met", "yesterday"], correct:2, explanation:"Object of verb 'met' → 'whom I met'." },
+        { parts: ["No one", "know", "the answer", "to this question"], correct:1, explanation:"Singular verb: 'knows'." },
+        { parts: ["He said", "that he will", "come tomorrow", "to the party"], correct:1, explanation:"Reported speech: past tense → 'he would come'." },
+        { parts: ["She asked", "me where", "was I", "going"], correct:2, explanation:"Indirect question: 'where I was going'." },
+        { parts: ["It is", "I who", "is responsible", "for the mistake"], correct:2, explanation:"'who' refers to 'I', so verb: 'am responsible'." },
+        { parts: ["This is", "the best book", "I have ever read", "a book like this"], correct:3, explanation:"Redundant: remove 'a book like this'." },
+        { parts: ["Unless", "you do not", "work hard, you will", "not succeed"], correct:1, explanation:"'Unless' already negative; remove 'not'." },
+        { parts: ["He behaved", "as if he", "is the boss", "of the company"], correct:2, explanation:"Unreal present: 'as if he were'." },
+        { parts: ["The man", "which came", "here yesterday", "was my uncle"], correct:1, explanation:"Use 'who' for persons, not 'which'." },
+        { parts: ["She is", "very weak", "and she cannot", "walk fastly"], correct:3, explanation:"Adverb of manner: 'fast', not 'fastly'." },
+        { parts: ["He is", "one of those", "people who", "is always late"], correct:3, explanation:"'who' refers to 'people' → 'are always late'." }
+    ];
+
+    // ----- DOM ELEMENTS -----
+    const dom = {
+        start: document.getElementById('startScreen'),
+        name: document.getElementById('nameScreen'),
+        quiz: document.getElementById('quizScreen'),
+        result: document.getElementById('resultScreen'),
+        review: document.getElementById('reviewScreen'),
+        guest: document.getElementById('guestContent'),
+        returning: document.getElementById('returningContent'),
+        welcome: document.getElementById('welcomeMsg'),
+        history: document.getElementById('historyList'),
+        btnStart: document.getElementById('btnStart'),
+        btnReturning: document.getElementById('btnStartReturning'),
+        btnChange: document.getElementById('btnChangeUser'),
+        nameInp: document.getElementById('playerNameInput'),
+        mobInp: document.getElementById('mobileInput'),
+        nameErr: document.getElementById('nameError'),
+        mobErr: document.getElementById('mobileError'),
+        btnBegin: document.getElementById('btnBeginQuiz'),
+        btnBackStart: document.getElementById('btnBackToStart'),
+        qCounter: document.getElementById('questionCounter'),
+        pBadge: document.getElementById('playerBadge'),
+        timerDisp: document.getElementById('timerDisplay'),
+        timerTxt: document.getElementById('timerText'),
+        timerBar: document.getElementById('timerBar'),
+        sentDisp: document.getElementById('sentenceDisplay'),
+        progDots: document.getElementById('progressDots'),
+        optsList: document.getElementById('optionsList'),
+        resEmoji: document.getElementById('resultEmoji'),
+        resName: document.getElementById('resultPlayerName'),
+        resRing: document.getElementById('resultRing'),
+        resScore: document.getElementById('resultScore'),
+        resMsg: document.getElementById('resultMessage'),
+        resDet: document.getElementById('resultDetail'),
+        saveStat: document.getElementById('autoSaveStatus'),
+        saveIcon: document.getElementById('autoSaveIcon'),
+        saveTxt: document.getElementById('autoSaveText'),
+        btnReview: document.getElementById('btnReview'),
+        btnRetry: document.getElementById('btnRetry'),
+        revList: document.getElementById('reviewList'),
+        revBadge: document.getElementById('reviewScoreBadge'),
+        btnRevRetry: document.getElementById('btnRetryFromReview'),
+        btnRevBack: document.getElementById('btnBackToResult')
+    };
+
+    // ----- FIXED SCREEN SWITCHING -----
+    const allScreens = [dom.start, dom.name, dom.quiz, dom.result, dom.review];
+
+    function showScreen(name) {
+        // Hide all screens
+        allScreens.forEach(s => s.classList.remove('active'));
+        // Stop timer if leaving quiz
+        if (state.timerInterval) stopTimer();
+        // Show requested screen
+        const target = document.getElementById(name+'Screen');
+        if (target) {
+            target.style.animation = 'none';
+            target.offsetHeight; // trigger reflow
+            target.style.animation = '';
+            target.classList.add('active');
+        }
+    }
+
+    // ----- TIMER & QUIZ LOGIC -----
+    function resetState() {
+        state.currentIndex=0; state.score=0; state.answers=[];
+        state.timeLeft=TIME_PER_QUESTION; clearInterval(state.timerInterval);
+        state.timerInterval=null; state.quizFinished=false; state.totalTimeTaken=0; state.isAnswerLocked=false;
+    }
+    function buildDots() {
+        dom.progDots.innerHTML='';
+        for(let i=0;i<TOTAL_QUESTIONS;i++) {
+            const d=document.createElement('span'); d.className='progress-dot';
+            if(i<state.answers.length) {
+                const a=state.answers[i]; d.classList.add(a.selectedIndex===-1?'skipped':(a.isCorrect?'done':'wrong-dot'));
+            } else if(i===state.currentIndex && !state.quizFinished) d.classList.add('current');
+            d.title=`Q${i+1}`; dom.progDots.appendChild(d);
+        }
+    }
+    function updateTimerDot(sec) {
+        const dot=dom.timerDisp.querySelector('.timer-dot');
+        dot.style.background=sec<=10?'#ef4444':sec<=20?'#f59e0b':'#10b981';
+    }
+    function startTimer() {
+        clearInterval(state.timerInterval); state.timeLeft=TIME_PER_QUESTION; state.questionStartTime=Date.now();
+        dom.timerBar.style.width='100%'; dom.timerBar.classList.remove('warning','danger');
+        dom.timerDisp.classList.remove('warning','urgent'); dom.timerTxt.textContent=TIME_PER_QUESTION+'s';
+        updateTimerDot(TIME_PER_QUESTION);
+        state.timerInterval=setInterval(()=>{
+            const elapsed=(Date.now()-state.questionStartTime)/1000, remaining=Math.max(0,TIME_PER_QUESTION-elapsed);
+            state.timeLeft=remaining; dom.timerBar.style.width=(remaining/TIME_PER_QUESTION*100)+'%';
+            dom.timerTxt.textContent=Math.ceil(remaining)+'s'; updateTimerDot(Math.ceil(remaining));
+            dom.timerBar.classList.remove('warning','danger'); dom.timerDisp.classList.remove('warning','urgent');
+            if(remaining<=10){dom.timerBar.classList.add('danger');dom.timerDisp.classList.add('urgent');}
+            else if(remaining<=20){dom.timerBar.classList.add('warning');dom.timerDisp.classList.add('warning');}
+            if(remaining<=0) handleTimeout();
+        },100);
+    }
+    function stopTimer() { clearInterval(state.timerInterval); state.timerInterval=null; }
+    function handleTimeout() {
+        if(state.isAnswerLocked) return;
+        state.isAnswerLocked=true; stopTimer();
+        const q=questions[state.currentIndex];
+        Array.from(dom.optsList.children).forEach(b=>b.classList.add('disabled'));
+        dom.optsList.children[q.correct].classList.add('reveal-correct');
+        state.answers.push({selectedIndex:-1, correctIndex:q.correct, isCorrect:false});
+        state.totalTimeTaken+=TIME_PER_QUESTION; buildDots();
+        setTimeout(advanceQuestion,900);
+    }
+    function handleClick(idx,btn) {
+        if(state.isAnswerLocked) return;
+        state.isAnswerLocked=true; stopTimer();
+        const q=questions[state.currentIndex], correct=idx===q.correct;
+        const elapsed=(Date.now()-state.questionStartTime)/1000; state.totalTimeTaken+=Math.min(elapsed,TIME_PER_QUESTION);
+        Array.from(dom.optsList.children).forEach(b=>b.classList.add('disabled'));
+        dom.optsList.children[q.correct].classList.add('correct');
+        if(correct) { state.score++; btn.classList.add('correct'); }
+        else { btn.classList.add('wrong'); dom.optsList.children[q.correct].classList.add('reveal-correct'); }
+        state.answers.push({selectedIndex:idx, correctIndex:q.correct, isCorrect:correct});
+        buildDots(); setTimeout(advanceQuestion, correct?700:1000);
+    }
+    function advanceQuestion() {
+        state.currentIndex++;
+        if(state.currentIndex>=TOTAL_QUESTIONS) finishQuiz();
+        else loadQuestion();
+    }
+    function loadQuestion() {
+        if(state.currentIndex>=TOTAL_QUESTIONS) { finishQuiz(); return; }
+        state.isAnswerLocked=false; state.timeLeft=TIME_PER_QUESTION; state.questionStartTime=Date.now();
+        const q=questions[state.currentIndex];
+        const partsWithLabels=q.parts.map((p,i)=>`<span class="label">(${String.fromCharCode(65+i)})</span> ${p}`).join(' / ');
+        dom.sentDisp.innerHTML=partsWithLabels;
+        dom.qCounter.textContent=`Q ${state.currentIndex+1}/${TOTAL_QUESTIONS}`;
+        dom.optsList.innerHTML='';
+        const letters=['A','B','C','D'];
+        q.parts.forEach((opt,idx)=>{
+            const li=document.createElement('li'), btn=document.createElement('button');
+            btn.className='option-btn'; btn.innerHTML=`<span class="option-letter">${letters[idx]}</span><span>${opt}</span>`;
+            btn.addEventListener('click',()=>handleClick(idx,btn)); li.appendChild(btn); dom.optsList.appendChild(li);
+        });
+        dom.timerBar.classList.remove('warning','danger'); dom.timerBar.style.width='100%';
+        dom.timerDisp.classList.remove('warning','urgent'); dom.timerTxt.textContent=TIME_PER_QUESTION+'s';
+        updateTimerDot(TIME_PER_QUESTION); buildDots(); startTimer();
+    }
+    function finishQuiz() {
+        stopTimer(); state.quizFinished=true; buildDots(); showResults(); autoSaveScore();
+    }
+    function showResults() {
+        showScreen('result'); const pct=Math.round(state.score/TOTAL_QUESTIONS*100);
+        const offset=CIRCUMFERENCE-(pct/100)*CIRCUMFERENCE;
+        dom.resName.textContent=`👤 ${playerName} (${playerMobile})`;
+        dom.resRing.style.strokeDasharray=CIRCUMFERENCE; dom.resRing.style.strokeDashoffset=CIRCUMFERENCE;
+        dom.resRing.style.stroke=pct>=80?'#10b981':pct>=60?'#f59e0b':pct>=40?'#f97316':'#ef4444';
+        requestAnimationFrame(()=>requestAnimationFrame(()=>dom.resRing.style.strokeDashoffset=offset));
+        animateCount(dom.resScore,0,state.score,1000);
+        let emoji, msg;
+        if(pct>=90){emoji='🏆';msg="Excellent spotting skills!";}
+        else if(pct>=75){emoji='🌟';msg='Great job! Keep refining.';}
+        else if(pct>=60){emoji='👍';msg='Good effort. More practice will help.';}
+        else if(pct>=40){emoji='📚';msg='Fair attempt. Review error rules.';}
+        else{emoji='💪';msg='Keep learning! Practice makes perfect.';}
+        dom.resEmoji.textContent=emoji; dom.resMsg.textContent=msg;
+        dom.resDet.textContent=`You scored ${state.score}/50 (${pct}%) in ${formatTime(state.totalTimeTaken)}.`;
+        setSaveStatus('saving','⏳','Saving your score…');
+    }
+    function setSaveStatus(type,icon,text) {
+        dom.saveStat.className=`auto-save-status ${type}`; dom.saveIcon.textContent=icon; dom.saveTxt.textContent=text;
+    }
+    async function autoSaveScore() {
+        if(!db){setSaveStatus('error','⚠️','Firebase unavailable.');return;}
+        const pct=Math.round(state.score/TOTAL_QUESTIONS*100);
+        try{
+            await db.ref('quizResults').push({name:playerName,mobile:playerMobile,score:state.score,total:TOTAL_QUESTIONS,percentage:pct,timeTaken:Math.round(state.totalTimeTaken),timestamp:new Date().toISOString()});
+            setSaveStatus('saved','✅',`Score saved for "${playerName}"!`);
+        }catch(e){setSaveStatus('error','⚠️','Save failed.');}
+    }
+    function buildReview() {
+        dom.revBadge.textContent=`${state.score}/${TOTAL_QUESTIONS}`; dom.revList.innerHTML='';
+        const letters=['A','B','C','D'];
+        questions.forEach((q,i)=>{
+            const ans=state.answers[i], isCorrect=ans?.isCorrect, isSkipped=ans?.selectedIndex===-1;
+            const cls=isCorrect?'correct-card':isSkipped?'skipped-card':'wrong-card';
+            const card=document.createElement('div'); card.className=`review-card ${cls}`;
+            const hdr=document.createElement('div'); hdr.className='review-card-header';
+            hdr.innerHTML=`<span class="review-q-num">${i+1}</span><div class="review-sentence">${q.parts.map((p,idx)=>`<span style="font-weight:${idx===q.correct?700:400};color:${idx===q.correct?'var(--primary)':'var(--text)'};">(${letters[idx]}) ${p}</span>`).join(' / ')}</div>`;
+            card.appendChild(hdr);
+            const body=document.createElement('div'); body.className='review-card-body';
+            if(isSkipped){
+                body.innerHTML+=`<div class="review-answer-row"><span class="review-answer-label label-skipped">⏰ Time Up</span><span class="review-answer-text" style="color:var(--text-muted);">You did not answer.</span></div>`;
+            }else if(!isCorrect){
+                body.innerHTML+=`<div class="review-answer-row"><span class="review-answer-label label-your">✗ Your Ans</span><span class="review-answer-text">${letters[ans.selectedIndex]}. ${q.parts[ans.selectedIndex]}</span></div>`;
+            }
+            body.innerHTML+=`<div class="review-answer-row"><span class="review-answer-label label-correct">✓ Correct</span><span class="review-answer-text">${letters[q.correct]}. ${q.parts[q.correct]}</span></div>`;
+            body.innerHTML+=`<div class="review-explanation"><strong>💡 Explanation</strong>${q.explanation}</div>`;
+            card.appendChild(body); dom.revList.appendChild(card);
+        });
+        dom.revList.scrollTop=0;
+    }
+    function animateCount(el,start,end,dur){const t0=performance.now();(function upd(now){const p=Math.min((now-t0)/dur,1),e=1-Math.pow(1-p,3);el.textContent=Math.round(start+(end-start)*e);if(p<1)requestAnimationFrame(upd);else el.textContent=end;})(t0);}
+    function formatTime(t){const m=Math.floor(t/60),s=Math.floor(t%60);return m>0?`${m}m ${s}s`:`${s}s`;}
+    function startQuiz(){resetState();dom.pBadge.textContent=`👤 ${playerName}`;showScreen('quiz');loadQuestion();}
+
+    // Registration & Returning User Logic
+    async function saveUser(name,mobile){if(!db)return;try{await db.ref('login/'+mobile).set({name,mobile,registeredAt:new Date().toISOString()});}catch(e){}}
+    async function getExisting(mobile){if(!db)return null;try{const snap=await db.ref('login/'+mobile).once('value');const d=snap.val();return d?.name||null;}catch{return null;}}
+    async function loadHistory(mobile){
+        dom.history.innerHTML='<p style="text-align:center;color:var(--text-muted);">Loading...</p>';
+        if(!db){dom.history.innerHTML='<p style="text-align:center;color:var(--text-muted);">Firebase unavailable</p>';return;}
+        try{
+            const snap=await db.ref('quizResults').orderByChild('mobile').equalTo(mobile).limitToLast(5).once('value');
+            const res=snap.val(); if(!res){dom.history.innerHTML='<p style="text-align:center;color:var(--text-muted);">No scores yet</p>';return;}
+            const sorted=Object.values(res).sort((a,b)=>(b.timestamp||'').localeCompare(a.timestamp||''));
+            dom.history.innerHTML=''; sorted.forEach(e=>{
+                const item=document.createElement('div'); item.className='history-item';
+                item.innerHTML=`<span>${e.name}</span><span class="history-score">${e.score}/${e.total} (${e.percentage}%)</span><span class="history-date">${new Date(e.timestamp).toLocaleDateString()}</span>`;
+                dom.history.appendChild(item);
+            });
+        }catch(e){dom.history.innerHTML='<p style="text-align:center;color:var(--text-muted);">Could not load history</p>';}
+    }
+    function showReturningUI(name,mobile){
+        isReturningUser=true; playerName=name; playerMobile=mobile;
+        dom.guest.style.display='none'; dom.returning.style.display='flex';
+        dom.welcome.textContent=`Welcome back, ${name}!`; loadHistory(mobile); showScreen('start');
+    }
+    function showGuestUI(){
+        isReturningUser=false; playerName=''; playerMobile='';
+        dom.guest.style.display='flex'; dom.returning.style.display='none'; showScreen('start');
+    }
+    async function initSession(){
+        const stored=localStorage.getItem('quizUser');
+        if(!stored){showGuestUI();return;}
+        if(db){const nm=await getExisting(stored); if(nm){showReturningUI(nm,stored);return;}else localStorage.removeItem('quizUser');}
+        else localStorage.removeItem('quizUser');
+        showGuestUI();
+    }
+
+    // Event Listeners
+    dom.btnStart.addEventListener('click',()=>{dom.nameInp.value=localStorage.getItem('quizPlayerName')||'';dom.mobInp.value='';dom.nameErr.textContent='';dom.mobErr.textContent='';showScreen('name');setTimeout(()=>dom.nameInp.focus(),300);});
+    dom.btnReturning.addEventListener('click',()=>{if(!playerName||!playerMobile){showGuestUI();}else startQuiz();});
+    dom.btnChange.addEventListener('click',()=>{localStorage.removeItem('quizUser');localStorage.removeItem('quizPlayerName');playerName='';playerMobile='';showGuestUI();});
+    dom.btnBackStart.addEventListener('click',()=>{if(isReturningUser)showReturningUI(playerName,playerMobile);else showGuestUI();});
+    dom.nameInp.addEventListener('keydown',e=>{if(e.key==='Enter')dom.mobInp.focus();});
+    dom.mobInp.addEventListener('keydown',e=>{if(e.key==='Enter')dom.btnBegin.click();});
+    dom.btnBegin.addEventListener('click',async ()=>{
+        const rawName=dom.nameInp.value.trim();
+        if(!rawName){dom.nameErr.textContent='⚠️ Please enter your name.';dom.nameInp.focus();return;}
+        if(rawName.length<2){dom.nameErr.textContent='⚠️ Name must be at least 2 characters.';dom.nameInp.focus();return;}
+        dom.nameErr.textContent='';
+        const rawMob=dom.mobInp.value.trim();
+        if(!rawMob){dom.mobErr.textContent='⚠️ Please enter your mobile number.';dom.mobInp.focus();return;}
+        if(!/^\d{10}$/.test(rawMob)){dom.mobErr.textContent='⚠️ Mobile must be 10 digits.';dom.mobInp.focus();return;}
+        dom.mobErr.textContent='';
+        if(db){const exist=await getExisting(rawMob); if(exist){playerName=exist;playerMobile=rawMob;localStorage.setItem('quizUser',rawMob);localStorage.setItem('quizPlayerName',exist);startQuiz();return;}}
+        playerName=rawName; playerMobile=rawMob;
+        localStorage.setItem('quizUser',rawMob); localStorage.setItem('quizPlayerName',rawName);
+        if(db) await saveUser(rawName,rawMob);
+        startQuiz();
+    });
+    dom.btnReview.addEventListener('click',()=>{buildReview();showScreen('review');});
+    dom.btnRevBack.addEventListener('click',()=>showScreen('result'));
+    dom.btnRetry.addEventListener('click',startQuiz);
+    dom.btnRevRetry.addEventListener('click',startQuiz);
+
+    // Init
+    dom.resRing.style.strokeDasharray=CIRCUMFERENCE; dom.resRing.style.strokeDashoffset=CIRCUMFERENCE;
+    dom.resScore.textContent='0'; initSession();
+})();
+</script>
+</body>
+</html>
